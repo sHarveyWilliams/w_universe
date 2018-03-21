@@ -64,7 +64,7 @@ CREATE INDEX "idx_reliability__supplier" ON "reliability" ("supplier");
 ALTER TABLE "reliability" ADD CONSTRAINT "fk_reliability__supplier" FOREIGN KEY ("supplier") REFERENCES "supplier" ("id_p");
 
 INSERT INTO supplier VALUES
-  (0, 'Мираторг', '89211241242', 'brom@gmail.com', 'ul Krasnaya'),
-  (1, 'ПензКолбасы', '89211241241', 'penzcolb@gmail.com', 'ul Presnenskaya');
+  (0, 'Мираторг', '89211241242', 'brom@gmail.com', 'ul Krasnaya 7a'),
+  (1, 'ПензКолбасы', '89211241241', 'penzcolb@gmail.com', 'ul Presnenskaya 142');
 
 SELECT * FROM supplier

@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import sys
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget,
-                             QTableWidget, QHBoxLayout, QVBoxLayout,
-                             QLabel, QSlider, QPushButton, QScrollArea,
-                             QTabWidget, QTableWidgetItem, QFrame)
+import configparser
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QTableWidget,
+                             QWidget, QHBoxLayout, QVBoxLayout, QGridLayout,
+                             QLabel, QSlider, QPushButton, QMessageBox, QComboBox,
+                             QTabWidget, QTableWidgetItem, QFrame, QSplitter,
+                             QTableView, QStackedLayout)
+from PyQt5.QtSql import (QSqlDatabase, QSqlQuery, QSqlTableModel)
 from PyQt5.QtGui import (QFont)
 from PyQt5.QtCore import (Qt)
 
@@ -13,21 +16,26 @@ from PyQt5.QtCore import (Qt)
 class MainWindow(QMainWindow):
 
     def __init__(self):
-        super().__init__()
+        super(MainWindow, self).__init__()
 
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle("White universe")
         self.resize(1366, 768)
-        self.statusBar().showMessage('pre-alpha 0.1')
+        self.statusBar().showMessage('alpha 0.3')
+        self.setStyleSheet("MainWindow {background-color: rgb(200, 200, 200)}")
 
-        self.fast = FastSearchTab()
-        self.detailed = DetailedSearchTab()
+        self.db = DB()
+
+        self.fast = FastSearchTab(self)
+        self.detailed = DetailedSearchTab(self)
+        self.dbws = DBWorkspaceTab(self)
 
         self.tabs = QTabWidget()
         self.tabs.addTab(self.fast, "Fast search")
         self.tabs.addTab(self.detailed, "Detailed search")
+        self.tabs.addTab(self.dbws, "Database workspace")
 
         self.vbox = QVBoxLayout()
         self.vbox.addWidget(self.tabs)
@@ -39,100 +47,10 @@ class MainWindow(QMainWindow):
         self.show()
 
 
-class DetailedSearchTab(QWidget):
-
-    def __init__(self):
-        super().__init__()
-
-        self.initUI()
-
-    def initUI(self):
-        self.main_lbl = QLabel("Search parameters", self)
-        self.main_lbl.setFont(QFont("Arial",24))
-        self.main_lbl.setStyleSheet("font-weight: bold")
-
-        self.scnd_lbl = QLabel("Search results", self)
-        self.scnd_lbl.setFont(QFont("Arial",24))
-        self.scnd_lbl.setStyleSheet("font-weight: bold")
-
-        self.cost = SearchParameterSlider("Cost", 10, "cheaper", "expensive")
-        self.quality = SearchParameterSlider("Quality", 5, "worst", "best")
-        self.prod_match = SearchParameterSlider("Production match", 3, "less", "more")
-        self.reliability = SearchParameterSlider("Reliability", 6, "0", "5")
-        self.delivery_spd = SearchParameterSlider("Delivery speed", 4, "slow", "fast")
-
-        self.search_btn = QPushButton("Search")
-
-        # testing search result widget
-        #
-        self.goods_list = ["rvdddd", "trshg", "aer", "aerg",
-                           "aer", "aerg", "trshg", "trshg"]
-
-        self.search_result1 = SearchResult("oessedgson", "5678", "@tiloh",
-                                          "llooll", self.goods_list)
-
-        self.search_result2 = SearchResult("oessedgson", "5678", "@tiloh",
-                                          "llooll", self.goods_list)
-
-        self.search_result3 = SearchResult("oessedgson", "5678", "@tiloh",
-                                          "llooll", self.goods_list)
-
-        self.v1params = QVBoxLayout()
-        self.v1params.addStretch(1)
-        self.v1params.addWidget(self.cost)
-        self.v1params.addStretch(1)
-        self.v1params.addWidget(self.quality)
-        self.v1params.addStretch(1)
-
-        self.v2params = QVBoxLayout()
-        self.v2params.addStretch(1)
-        self.v2params.addWidget(self.prod_match)
-        self.v2params.addStretch(1)
-        self.v2params.addWidget(self.reliability)
-        self.v2params.addStretch(1)
-
-        self.v3params = QVBoxLayout()
-        self.v3params.addWidget(self.delivery_spd)
-        self.v3params.addStretch(3)
-        self.v3params.addWidget(self.search_btn)
-        self.v3params.addStretch(1)
-
-        self.params_box = QHBoxLayout()
-        self.params_box.addStretch(1)
-        self.params_box.addLayout(self.v1params)
-        self.params_box.addStretch(1)
-        self.params_box.addLayout(self.v2params)
-        self.params_box.addStretch(1)
-        self.params_box.addLayout(self.v3params)
-        self.params_box.addStretch(1)
-
-        self.vbox = QVBoxLayout()
-        self.vbox.addStretch(1)
-        self.vbox.addWidget(self.main_lbl)
-        self.vbox.addStretch(1)
-        self.vbox.addLayout(self.params_box)
-        self.vbox.addStretch(1)
-        self.vbox.addWidget(self.scnd_lbl)
-        self.vbox.addStretch(1)
-        self.vbox.addWidget(self.search_result1)
-        self.vbox.addStretch(1)
-        self.vbox.addWidget(self.search_result2)
-        self.vbox.addStretch(1)
-        self.vbox.addWidget(self.search_result3)
-        self.vbox.addStretch(7)
-
-        self.hbox = QHBoxLayout()
-        self.hbox.addStretch(1)
-        self.hbox.addLayout(self.vbox)
-        self.hbox.addStretch(5)
-
-        self.setLayout(self.hbox)
-
-
 class FastSearchTab(QWidget):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super(FastSearchTab, self).__init__(parent)
 
         self.initUI()
 
@@ -183,6 +101,262 @@ class FastSearchTab(QWidget):
         self.hbox.addStretch(5)
 
         self.setLayout(self.hbox)
+
+
+class DetailedSearchTab(QWidget):
+
+    def __init__(self, parent=None):
+        super(DetailedSearchTab, self).__init__(parent)
+
+        self.initUI()
+
+    def initUI(self):
+        self.main_lbl = QLabel("Search parameters", self)
+        self.main_lbl.setFont(QFont("Arial",24))
+        self.main_lbl.setStyleSheet("font-weight: bold")
+
+        self.scnd_lbl = QLabel("Search results", self)
+        self.scnd_lbl.setFont(QFont("Arial",24))
+        self.scnd_lbl.setStyleSheet("font-weight: bold")
+
+        self.cost = SearchParameterSlider("Cost", 10, "cheaper", "expensive")
+        self.quality = SearchParameterSlider("Quality", 5, "worst", "best")
+        self.prod_match = SearchParameterSlider("Production match", 3, "less", "more")
+        self.reliability = SearchParameterSlider("Reliability", 6, "0", "5")
+        self.delivery_spd = SearchParameterSlider("Delivery speed", 4, "slow", "fast")
+
+        self.search_btn = QPushButton("Search")
+        self.search_btn.clicked.connect(QApplication.instance().quit)
+
+        # testing search result widget
+        #
+        self.goods_list = ["rvdddd", "trshg", "aer", "aerg",
+                           "aer", "aerg", "trshg", "trshg"]
+
+        self.search_result1 = SearchResult("oessedgson", "5678", "@tiloh",
+                                          "llooll", self.goods_list)
+
+        self.search_result2 = SearchResult("oessedgson", "5678", "@tiloh",
+                                          "llooll", self.goods_list)
+
+        self.search_result3 = SearchResult("oessedgson", "5678", "@tiloh",
+                                          "llooll", self.goods_list)
+
+        self.params_box = QGridLayout()
+        self.params_box.addWidget(self.cost, 0, 0)
+        self.params_box.addWidget(self.prod_match, 0, 1)
+        self.params_box.addWidget(self.delivery_spd, 0, 2)
+        self.params_box.addWidget(self.quality, 1, 0)
+        self.params_box.addWidget(self.reliability, 1, 1)
+        self.params_box.addWidget(self.search_btn, 1, 2)
+
+        self.vbox = QVBoxLayout()
+        self.vbox.addStretch(1)
+        self.vbox.addWidget(self.main_lbl)
+        self.vbox.addStretch(1)
+        self.vbox.addLayout(self.params_box)
+        self.vbox.addStretch(1)
+        self.vbox.addWidget(self.scnd_lbl)
+        self.vbox.addStretch(1)
+        self.vbox.addWidget(self.search_result1)
+        self.vbox.addStretch(1)
+        self.vbox.addWidget(self.search_result2)
+        self.vbox.addStretch(1)
+        self.vbox.addWidget(self.search_result3)
+        self.vbox.addStretch(7)
+
+        self.hbox = QHBoxLayout()
+        self.hbox.addStretch(1)
+        self.hbox.addLayout(self.vbox)
+        self.hbox.addStretch(5)
+
+        self.setLayout(self.hbox)
+
+
+class DBWorkspaceTab(QWidget):
+
+    def __init__(self, parent=None):
+        super(DBWorkspaceTab, self).__init__(parent)
+
+        self.initUI()
+
+    def initUI(self):
+        self.editor = DBEditor(self)
+
+        self.terminal = DBTerminal(self)
+
+        self.spliterV = QSplitter(Qt.Vertical)
+        self.spliterV.addWidget(self.editor)
+        self.spliterV.addWidget(self.terminal)
+
+        self.hbox = QHBoxLayout()
+        self.hbox.addWidget(self.spliterV)
+
+        self.setLayout(self.hbox)
+
+
+class Table(QWidget):
+    def __init__(self, table_name='', table_cols=[], parent=None):
+        super(Table, self).__init__(parent)
+
+        self.cols = len(table_cols)
+        self.rows = 0
+
+        self.model = QSqlTableModel(self)
+        self.model.setTable(table_name)
+        self.model.setEditStrategy(QSqlTableModel.OnManualSubmit)
+        self.model.select()
+
+        for self.col_name, self.id in zip(table_cols, range(len(table_cols))):
+            self.model.setHeaderData(self.id, Qt.Horizontal, self.col_name)
+
+        self.rows = self.model.rowCount()
+
+        self.initUI()
+
+    def initUI(self):
+        self.view = QTableView()
+        self.view.setModel(self.model)
+        self.view.resizeColumnsToContents()
+        self.view.verticalHeader().hide()
+        self.view.setFixedWidth(sum([self.view.columnWidth(self.col_num) for self.col_num in range(self.cols)]) + 5)
+
+        if (self.view.rowHeight(0) * self.rows + self.view.horizontalHeader().height() * 1.1) > 480:
+            self.view.setFixedHeight(480)
+        else:
+            self.view.setFixedHeight(self.view.rowHeight(0) * self.rows + self.view.horizontalHeader().height() * 1.1)
+
+        self.vbox = QVBoxLayout()
+        self.vbox.addWidget(self.view)
+        self.vbox.addStretch(1)
+
+        self.hbox = QHBoxLayout()
+        self.hbox.addLayout(self.vbox)
+        self.hbox.addStretch(1)
+
+        self.setLayout(self.hbox)
+
+    # def submit(self):
+    #     self.model.database().transaction()
+    #     if self.model.submitAll():
+    #         self.model.database().commit()
+    #     else:
+    #         self.model.database().rollback()
+    #         QMessageBox.warning(self, "Cached Table",
+    #                     "The database reported an error: %s" % self.model.lastError().text())
+
+
+class TableViewer(QWidget):
+
+    def __init__(self, parent=None):
+        super(TableViewer, self).__init__(parent)
+
+        self.initUI()
+
+    def initUI(self):
+        self.tables = {}
+        self.lays = QStackedLayout()
+
+        for self.table_name in self.parent().parent().parent().db.tables():
+            self.tables[self.table_name] = self.lays.addWidget(Table(self.table_name, self.parent().parent().parent().db.cols(self.table_name)))
+
+        self.vbox = QVBoxLayout()
+        self.vbox.addLayout(self.lays)
+        self.vbox.addStretch(1)
+
+        self.hbox = QHBoxLayout()
+        self.hbox.addLayout(self.vbox)
+        self.hbox.addStretch(1)
+
+        self.setLayout(self.hbox)
+
+    def changeTable(self, table_name):
+        self.lays.setCurrentIndex(self.tables[table_name])
+
+
+class DBEditor(QWidget):
+
+    def __init__(self, parent=None):
+        super(DBEditor, self).__init__(parent)
+
+        self.initUI()
+
+    def initUI(self):
+        self.viewer = TableViewer(self)
+
+        self.table_chooser = QComboBox()
+        self.table_chooser.addItems(self.parent().parent().db.tables())
+        self.table_chooser.activated[str].connect(self.changeTable)
+
+        self.vbox = QVBoxLayout()
+        self.vbox.addWidget(self.table_chooser)
+        self.vbox.addStretch(1)
+        self.vbox.addWidget(self.viewer)
+        self.vbox.addStretch(3)
+
+        self.hbox = QHBoxLayout()
+        self.hbox.addStretch(1)
+        self.hbox.addLayout(self.vbox)
+        self.hbox.addStretch(7)
+
+        self.setLayout(self.hbox)
+
+    def changeTable(self, table_name):
+        self.viewer.changeTable(table_name)
+
+
+class DBTerminal(QWidget):
+
+    def __init__(self, parent=None):
+        super(DBTerminal, self).__init__(parent)
+
+        self.initUI()
+
+    def initUI(self):
+        self.setMaximumHeight(200)
+
+
+class DB:
+
+    def __init__(self):
+        super(DB, self).__init__()
+
+        self.db = QSqlDatabase.addDatabase('QSQLITE')
+        self.db.setDatabaseName('../data/wudb')
+        if not self.db.open():
+            QMessageBox.critical(None, "Cannot open database",
+                                 "Unable to establish a database connection.\n"
+                                 "This example needs SQLite support. Please read the Qt SQL "
+                                 "driver documentation for information how to build it.\n\n"
+                                 "Click Cancel to exit.",
+                                 QMessageBox.Cancel)
+
+        self.query = QSqlQuery()
+
+        self.tables_list = {}
+
+        self.initDB()
+
+    def initDB(self):
+        with open("../data/wu.db", 'r', encoding="utf-8") as self.lines:
+            for self.string in self.lines:
+                if self.string != '\n':
+                    self.query.exec_(self.string)
+
+        self.db_conf = configparser.ConfigParser()
+        self.db_conf.read("../data/tables_info.conf")
+
+        for self.table in self.db_conf.sections():
+            self.tables_list[self.table] = self.db_conf[self.table]["cols"].split(',')
+
+    def tables(self):
+        return self.tables_list.keys()
+
+    def cols_count(self, table_name):
+        return len(self.tables_list[table_name])
+
+    def cols(self, table_name):
+        return self.tables_list[table_name]
 
 
 class SearchParameterSlider(QWidget):
@@ -266,10 +440,8 @@ class SearchResult(QWidget):
 
         self.list_table.resizeColumnsToContents()
         self.list_table.resizeRowsToContents()
-        self.list_table.setMaximumWidth(self.list_table.columnWidth(0) + 28)
-        self.list_table.setMinimumWidth(self.list_table.columnWidth(0) + 28)
-        self.list_table.setMaximumHeight(self.list_table.rowHeight(0) * 3.8)
-        self.list_table.setMinimumHeight(self.list_table.rowHeight(0) * 3.8)
+        self.list_table.setFixedWidth(self.list_table.columnWidth(0) + self.list_table.verticalHeader().width())
+        self.list_table.setFixedHeight(self.list_table.rowHeight(0) * 3.8)
 
         self.vbox = QVBoxLayout()
         self.vbox.addWidget(self.name_lbl)
@@ -281,7 +453,7 @@ class SearchResult(QWidget):
         self.rect = QFrame()
         self.rect.setFixedWidth(self.list_table.width() / 4)
         self.rect.setFixedHeight(self.list_table.height())
-        self.rect.setStyleSheet("QWidget { background-color: %s }" % self.palette().color(self.backgroundRole()))
+        # self.rect.setStyleSheet("QWidget { background-color: %s }" % self.palette().color(self.backgroundRole()))
 
         self.separator = QFrame()
         self.separator.setFixedWidth(2)

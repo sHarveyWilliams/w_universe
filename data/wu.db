@@ -1,0 +1,21 @@
+CREATE TABLE "production" ("id_a" INTEGER CONSTRAINT "pk_production" PRIMARY KEY AUTOINCREMENT, "name" TEXT NOT NULL);
+
+CREATE TABLE "needablegoods" ("id_n" INTEGER CONSTRAINT "pk_needablegoods" PRIMARY KEY AUTOINCREMENT, "production" INTEGER NOT NULL REFERENCES "production" ("id_a"));
+
+CREATE INDEX "idx_needablegoods__production" ON "needablegoods" ("production");
+
+CREATE TABLE "suppliers" ("id_p" INTEGER CONSTRAINT "pk_suppliers" PRIMARY KEY AUTOINCREMENT, "name" TEXT NOT NULL, "phone" TEXT NOT NULL, "email" TEXT NOT NULL, "address" TEXT NOT NULL);
+
+CREATE TABLE "criteria" ("id" INTEGER CONSTRAINT "pk_criteria" PRIMARY KEY AUTOINCREMENT, "suppliers" INTEGER NOT NULL REFERENCES "suppliers" ("id_p"), "cost" REAL, "quality" REAL, "coincidence" REAL, "reliability" REAL, "delivery" REAL, "delivery_rapidity" REAL);
+
+CREATE INDEX "idx_criteria__suppliers" ON "criteria" ("suppliers");
+
+CREATE TABLE "rangeofgoods" ("id" INTEGER CONSTRAINT "pk_rangeofgoods" PRIMARY KEY AUTOINCREMENT, "cost" REAL, "time" TIME, "suppliers" INTEGER NOT NULL REFERENCES "suppliers" ("id_p"), "production" INTEGER NOT NULL REFERENCES "production" ("id_a"));
+
+CREATE INDEX "idx_rangeofgoods__production" ON "rangeofgoods" ("production");
+
+CREATE INDEX "idx_rangeofgoods__supplier" ON "rangeofgoods" ("supplier");
+
+CREATE TABLE "reliability" ("id" INTEGER CONSTRAINT "pk_reliability" PRIMARY KEY AUTOINCREMENT, "suppliers" INTEGER NOT NULL REFERENCES "suppliers" ("id_p"), "completed_ord" INTEGER, "all_orders" INTEGER, "cust_rate" REAL);
+
+CREATE INDEX "idx_reliability__suppliers" ON "reliability" ("suppliers");
