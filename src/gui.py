@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QTableWidget,
                              QWidget, QHBoxLayout, QVBoxLayout, QGridLayout,
                              QLabel, QSlider, QPushButton, QMessageBox, QComboBox,
                              QTabWidget, QTableWidgetItem, QFrame, QSplitter,
-                             QTableView, QStackedLayout)
+                             QTableView, QStackedLayout, QLineEdit, QTextEdit)
 from PyQt5.QtSql import (QSqlDatabase, QSqlQuery, QSqlTableModel)
 from PyQt5.QtGui import (QFont)
 from PyQt5.QtCore import (Qt)
@@ -185,7 +185,7 @@ class DBWorkspaceTab(QWidget):
 
         self.terminal = DBTerminal(self)
 
-        self.spliterV = QSplitter(Qt.Vertical)
+        self.spliterV = QSplitter(Qt.Vertical, self)
         self.spliterV.addWidget(self.editor)
         self.spliterV.addWidget(self.terminal)
 
@@ -284,13 +284,13 @@ class DBEditor(QWidget):
     def initUI(self):
         self.viewer = TableViewer(self)
 
-        self.table_chooser = QComboBox()
+        self.table_chooser = QComboBox(self)
         self.table_chooser.addItems(self.parent().parent().db.tables())
+        self.table_chooser.setMaximumWidth(160)
         self.table_chooser.activated[str].connect(self.changeTable)
 
         self.vbox = QVBoxLayout()
         self.vbox.addWidget(self.table_chooser)
-        self.vbox.addStretch(1)
         self.vbox.addWidget(self.viewer)
         self.vbox.addStretch(3)
 
@@ -314,6 +314,51 @@ class DBTerminal(QWidget):
 
     def initUI(self):
         self.setMaximumHeight(200)
+
+        self.history = []
+        self.last_command = ''
+        self.hist_iter = -1
+
+        self.terminal = QLineEdit()
+
+        self.hist_view = QTextEdit()
+        self.hist_view.setReadOnly(True)
+        self.hist_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        self.vbox = QVBoxLayout()
+        self.vbox.addWidget(self.hist_view)
+        self.vbox.addWidget(self.terminal)
+
+        self.hbox = QHBoxLayout()
+        self.hbox.addLayout(self.vbox)
+
+        self.setLayout(self.hbox)
+
+    def keyPressEvent(self, QKeyEvent):
+        if QKeyEvent.key() == Qt.Key_Return:
+            self.hist_view.setText('\n'.join([self.hist_view.toPlainText(), ">>> " + self.terminal.text()]))
+            self.hist_view.verticalScrollBar().setValue(self.hist_view.verticalScrollBar().maximum())
+
+            if self.terminal.text() != '':
+                self.history.insert(0, self.terminal.text())
+                self.makeSQLQuery(self.terminal.text())
+                self.terminal.clear()
+            self.hist_iter = -1
+        elif QKeyEvent.key() == Qt.Key_Up:
+            if self.hist_iter == -1:
+                self.last_command = self.terminal.text()
+            self.hist_iter += 1
+            if self.hist_iter < len(self.history):
+                self.terminal.setText(self.history[self.hist_iter])
+        elif QKeyEvent.key() == Qt.Key_Down:
+            self.hist_iter -= 1
+            if self.hist_iter == -1:
+                self.terminal.setText(self.last_command)
+            else:
+                self.terminal.setText(self.history[self.hist_iter])
+
+    def makeSQLQuery(self, command):
+        print(self.parent().parent().parent().parent().parent().parent().db.exec(command))
 
 
 class DB:
@@ -349,8 +394,12 @@ class DB:
         for self.table in self.db_conf.sections():
             self.tables_list[self.table] = self.db_conf[self.table]["cols"].split(',')
 
+    def exec(self, command):
+        return self.query.exec_(command)
+
+
     def tables(self):
-        return self.tables_list.keys()
+        return list(self.tables_list.keys())
 
     def cols_count(self, table_name):
         return len(self.tables_list[table_name])
