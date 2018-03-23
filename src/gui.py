@@ -1,8 +1,7 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-import sys
-import configparser
+import sys, os.path
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QTableWidget,
                              QWidget, QHBoxLayout, QVBoxLayout, QGridLayout,
                              QLabel, QSlider, QPushButton, QMessageBox, QComboBox,
@@ -200,7 +199,6 @@ class Table(QWidget):
         super(Table, self).__init__(parent)
 
         self.cols = len(table_cols)
-        self.rows = 0
 
         self.model = QSqlTableModel(self)
         self.model.setTable(table_name)
@@ -216,34 +214,76 @@ class Table(QWidget):
 
     def initUI(self):
         self.view = QTableView()
+        self.view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.view.setModel(self.model)
         self.view.resizeColumnsToContents()
         self.view.verticalHeader().hide()
         self.view.setFixedWidth(sum([self.view.columnWidth(self.col_num) for self.col_num in range(self.cols)]) + 5)
 
-        if (self.view.rowHeight(0) * self.rows + self.view.horizontalHeader().height() * 1.1) > 480:
-            self.view.setFixedHeight(480)
+        if (self.view.rowHeight(0) * self.rows + self.view.horizontalHeader().height() * 1.1) > 320:
+            self.view.setFixedHeight(320)
         else:
             self.view.setFixedHeight(self.view.rowHeight(0) * self.rows + self.view.horizontalHeader().height() * 1.1)
 
-        self.vbox = QVBoxLayout()
-        self.vbox.addWidget(self.view)
-        self.vbox.addStretch(1)
+        self.add_row_btn = QPushButton("Add row")
+        self.add_row_btn.pressed.connect(self.addRow)
+
+        self.del_row_btn = QPushButton("Remove row")
+        self.del_row_btn.pressed.connect(self.delRow)
+
+        self.submit_btn = QPushButton("Submit")
+        self.submit_btn.pressed.connect(self.submit)
+
+        self.btns_box = QVBoxLayout()
+        self.btns_box.addWidget(self.add_row_btn)
+        self.btns_box.addWidget(self.del_row_btn)
+        self.btns_box.addWidget(self.submit_btn)
+        self.btns_box.addStretch(1)
+
+        self.view_lay = QVBoxLayout()
+        self.view_lay.addWidget(self.view)
+        self.view_lay.addStretch(1)
+
+        # self.grid = QGridLayout()
+        # self.grid.addLayout(self.view_lay, 0, 0)
+        # self.grid.addLayout(self.btns_box, 0, 1)
 
         self.hbox = QHBoxLayout()
-        self.hbox.addLayout(self.vbox)
+        self.hbox.addLayout(self.view_lay)
+        self.hbox.addStretch(1024)
+        self.hbox.addLayout(self.btns_box)
+        # self.hbox.addLayout(self.grid)
         self.hbox.addStretch(1)
 
         self.setLayout(self.hbox)
 
-    # def submit(self):
-    #     self.model.database().transaction()
-    #     if self.model.submitAll():
-    #         self.model.database().commit()
-    #     else:
-    #         self.model.database().rollback()
-    #         QMessageBox.warning(self, "Cached Table",
-    #                     "The database reported an error: %s" % self.model.lastError().text())
+    def addRow(self):
+        self.model.insertRow(self.rows)
+        self.rows = self.model.rowCount()
+        if (self.view.rowHeight(0) * self.rows + self.view.horizontalHeader().height() * 1.1) > 320:
+            self.view.setFixedHeight(320)
+        else:
+            self.view.setFixedHeight(self.view.rowHeight(0) * self.rows + self.view.horizontalHeader().height() * 1.1)
+
+    def delRow(self):
+        if self.rows > 0:
+            self.rows -= 1
+            self.model.removeRow(self.rows)
+
+            if (self.view.rowHeight(0) * self.rows + self.view.horizontalHeader().height() * 1.1) > 320:
+                self.view.setFixedHeight(320)
+            else:
+                self.view.setFixedHeight(self.view.rowHeight(0) * self.rows + self.view.horizontalHeader().height() * 1.1)
+        else:
+            QMessageBox.warning(self, "ERROR", "Selected table does not have rows")
+
+    def submit(self):
+        self.model.database().transaction()
+        if self.model.submitAll():
+            self.model.database().commit()
+        else:
+            self.model.database().rollback()
+            QMessageBox.warning(self, "ERROR", "The database reported an error: %s" % self.model.lastError().text())
 
 
 class TableViewer(QWidget):
@@ -315,6 +355,7 @@ class DBEditor(QWidget):
         self.setLayout(self.hbox)
 
     def updateTables(self):
+        self.cur_table = self.table_chooser.currentText()
         self.viewer.updateTables()
         for self.iter in range(self.tables_count):
             self.table_chooser.removeItem(0)
@@ -415,10 +456,11 @@ class DB:
         self.initDB()
 
     def initDB(self):
-        with open("../data/wu.db", 'r', encoding="utf-8") as self.lines:
-            for self.string in self.lines:
-                if self.string != '\n':
-                    self.query.exec_(self.string)
+        if not os.path.exists("../data/wudb"):
+            with open("../data/wu.db", 'r', encoding="utf-8") as self.lines:
+                for self.string in self.lines:
+                    if self.string != '\n':
+                        self.query.exec_(self.string)
 
         for self.table in self.db.tables():
             if self.table != "sqlite_sequence":
