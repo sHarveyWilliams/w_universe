@@ -26,7 +26,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage('alpha 0.3')
         self.setStyleSheet("MainWindow {background-color: rgb(200, 200, 200)}")
 
-        self.db = DB()
+        self.db = DB(self)
 
         self.fast = FastSearchTab(self)
         self.detailed = DetailedSearchTab(self)
@@ -251,14 +251,17 @@ class TableViewer(QWidget):
     def __init__(self, parent=None):
         super(TableViewer, self).__init__(parent)
 
+        self.tables = {}
+        self.tables_count = 0
+
         self.initUI()
 
     def initUI(self):
-        self.tables = {}
         self.lays = QStackedLayout()
 
         for self.table_name in self.parent().parent().parent().db.tables():
             self.tables[self.table_name] = self.lays.addWidget(Table(self.table_name, self.parent().parent().parent().db.cols(self.table_name)))
+        self.tables_count = len(self.tables)
 
         self.vbox = QVBoxLayout()
         self.vbox.addLayout(self.lays)
@@ -270,6 +273,12 @@ class TableViewer(QWidget):
 
         self.setLayout(self.hbox)
 
+    def updateTables(self):
+        for self.iter in range(self.tables_count):
+            self.lays.removeWidget(self.lays.widget(0))
+        for self.table_name in self.parent().parent().parent().parent().parent().parent().parent().db.tables():
+            self.tables[self.table_name] = self.lays.addWidget(Table(self.table_name, self.parent().parent().parent().parent().parent().parent().parent().db.cols(self.table_name)))
+
     def changeTable(self, table_name):
         self.lays.setCurrentIndex(self.tables[table_name])
 
@@ -278,6 +287,8 @@ class DBEditor(QWidget):
 
     def __init__(self, parent=None):
         super(DBEditor, self).__init__(parent)
+
+        self.tables_count = 0
 
         self.initUI()
 
@@ -288,6 +299,8 @@ class DBEditor(QWidget):
         self.table_chooser.addItems(self.parent().parent().db.tables())
         self.table_chooser.setMaximumWidth(160)
         self.table_chooser.activated[str].connect(self.changeTable)
+        self.tables_count = self.table_chooser.count()
+        self.cur_table = self.table_chooser.currentText()
 
         self.vbox = QVBoxLayout()
         self.vbox.addWidget(self.table_chooser)
@@ -300,6 +313,17 @@ class DBEditor(QWidget):
         self.hbox.addStretch(7)
 
         self.setLayout(self.hbox)
+
+    def updateTables(self):
+        self.viewer.updateTables()
+        for self.iter in range(self.tables_count):
+            self.table_chooser.removeItem(0)
+        self.table_chooser.addItems(self.parent().parent().parent().parent().parent().parent().db.tables())
+        self.tables_count = self.table_chooser.count()
+
+        if self.cur_table in self.parent().parent().parent().parent().parent().parent().db.tables():
+            self.table_chooser.setCurrentText(self.cur_table)
+        self.changeTable(self.table_chooser.currentText())
 
     def changeTable(self, table_name):
         self.viewer.changeTable(table_name)
@@ -317,9 +341,11 @@ class DBTerminal(QWidget):
 
         self.history = []
         self.last_command = ''
+        self.ok = False
         self.hist_iter = -1
 
         self.terminal = QLineEdit()
+        self.terminal.setDragEnabled(True)
 
         self.hist_view = QTextEdit()
         self.hist_view.setReadOnly(True)
@@ -336,35 +362,41 @@ class DBTerminal(QWidget):
 
     def keyPressEvent(self, QKeyEvent):
         if QKeyEvent.key() == Qt.Key_Return:
-            self.hist_view.setText('\n'.join([self.hist_view.toPlainText(), ">>> " + self.terminal.text()]))
-            self.hist_view.verticalScrollBar().setValue(self.hist_view.verticalScrollBar().maximum())
-
             if self.terminal.text() != '':
                 self.history.insert(0, self.terminal.text())
-                self.makeSQLQuery(self.terminal.text())
-                self.terminal.clear()
+                self.ok = self.makeSQLQuery(self.terminal.text())
+            if self.ok:
+                self.hist_view.append(">>> " + '<font color="green">' + self.terminal.text() + "</font>")
+            else:
+                self.hist_view.append(">>> " + "<font color='red'>" + self.terminal.text() + "</font>")
+            self.hist_view.verticalScrollBar().setValue(self.hist_view.verticalScrollBar().maximum())
+
+            self.terminal.clear()
             self.hist_iter = -1
         elif QKeyEvent.key() == Qt.Key_Up:
             if self.hist_iter == -1:
                 self.last_command = self.terminal.text()
-            self.hist_iter += 1
-            if self.hist_iter < len(self.history):
+            if self.hist_iter+1 < len(self.history):
+                self.hist_iter += 1
                 self.terminal.setText(self.history[self.hist_iter])
         elif QKeyEvent.key() == Qt.Key_Down:
-            self.hist_iter -= 1
-            if self.hist_iter == -1:
-                self.terminal.setText(self.last_command)
-            else:
+            if self.hist_iter >= 0:
+                self.hist_iter -= 1
+            if self.hist_iter >= 0:
                 self.terminal.setText(self.history[self.hist_iter])
+            else:
+                self.terminal.setText(self.last_command)
 
     def makeSQLQuery(self, command):
-        print(self.parent().parent().parent().parent().parent().parent().db.exec(command))
+        return self.parent().parent().parent().parent().parent().parent().db.exec(command)
 
 
 class DB:
 
-    def __init__(self):
+    def __init__(self, parent=None):
         super(DB, self).__init__()
+
+        self.parent = parent
 
         self.db = QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName('../data/wudb')
@@ -388,14 +420,22 @@ class DB:
                 if self.string != '\n':
                     self.query.exec_(self.string)
 
-        self.db_conf = configparser.ConfigParser()
-        self.db_conf.read("../data/tables_info.conf")
-
-        for self.table in self.db_conf.sections():
-            self.tables_list[self.table] = self.db_conf[self.table]["cols"].split(',')
+        for self.table in self.db.tables():
+            if self.table != "sqlite_sequence":
+                self.tables_list[self.table] = [self.db.record(self.table).fieldName(x) for x in range(self.db.record(self.table).count())]
 
     def exec(self, command):
-        return self.query.exec_(command)
+        self.query_res = self.query.exec_(command)
+        if self.query_res:
+            for self.table in self.db.tables():
+                if self.table != "sqlite_sequence":
+                    self.tables_list[self.table] = [self.db.record(self.table).fieldName(x) for x in range(self.db.record(self.table).count())]
+            for self.table in self.tables():
+                if self.table not in self.db.tables():
+                    self.tables_list.pop(self.table)
+
+            self.parent.dbws.editor.updateTables()
+        return self.query_res
 
 
     def tables(self):
