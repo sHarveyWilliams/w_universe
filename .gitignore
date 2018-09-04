@@ -1,2 +1,4 @@
 *~
-src/.idea/*
+.idea/
+__pycache__/
+dump.sql

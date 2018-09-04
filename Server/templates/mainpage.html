@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>White Universe</title>
+    <link rel="stylesheet" href="(( url_for('static', filename='css/mainpage.css') ))">
+    <link rel="shortcut icon" href="(( url_for('static', filename='favicon.ico') ))">
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@0.12.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.13.1/lodash.min.js"></script>
+</head>
+<body>
+    <div id="app" class="app" goodslist='(( goods_l|tojson ))'>
+        <form id="search_sidebar" class="sidebar-left" v-show="active" @submit.prevent="searchDelivery">
+            <div id="check_goods_div" class="check-goods-div">
+                <label for="goods_search" class="search-label">Выберете нужные продукты</label>
+
+                <input id="goods_search" class="searcher" type="text" placeholder="Название продукта" v-model="goodsSearchInput">
+
+                <div id="goods_list" class="vertical-list of-goods">
+                    <component is="goods-list-element" v-for="good in goods" :key="'good'+good.id" :good="good"></component>
+                </div>
+            </div>
+
+            <div id="search_sliders" class="vertical-list">
+                <component is="search-slider" v-for="slider in sliders" :key="slider.id" :slider="slider"></component>
+            </div>
+
+            <input id="search_button" class="search-button" type="submit" value="Поиск">
+        </form>
+
+        <div id="content" class="content">
+            <div id="suppliers_list" class="suppliers">
+                <component is="suppliers-list-element" v-for="sup in suppliers" :key="'sup'+sup.id" :supplier="sup"></component>
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript" src="(( url_for('static', filename='js/mainpage.js') ))"></script>
+</body>
+</html>
