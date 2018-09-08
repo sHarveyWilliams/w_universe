@@ -99,7 +99,7 @@ new Vue({
                 }
             } else {
                 for (let good of this.goods) {
-                    good.show = good.name.toLowerCase().includes(this.goodsSearchInput);
+                    good.show = good.name.toLowerCase().includes(this.goodsSearchInput.toLowerCase());
                 }
             }
         },
